@@ -19,9 +19,11 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
 
     private static final String MENU_MUSIC = "miedo.wav";
     private static final String GAME_MUSIC = "Terror.wav";
-    private static final String BOSS_MUSIC = "final_boss.wav";
+    // Final boss uses its own background track and should stop with the boss.
+    private static final String BOSS_MUSIC = "jefe_final.wav";
     private static final String AMBIENT_LOOP = "susurros.wav";
     private static final String ZOMBIE_GROAN_SOUND = "zombie_grito_1.wav";
+    private static final String RELAX_SOUND = "respirar.wav";
     private static final String MENU_BACKGROUND_PATH = "assets/menu_inicio.png";
 
     private final InputState input;
@@ -44,6 +46,8 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     private boolean bossMusicPlaying;
     private boolean levelTransitioning;
     private int transitionFrames;
+    private int exitDelayFrames;
+    private boolean relaxSoundPlayed;
     private int nextLevelIndex = -1;
     private int announcementFrames;
     private String announcementTitle = "";
@@ -61,6 +65,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
 
     @Override
     public void preStep(StepEvent stepEvent) {
+        // Main game loop: menu/pause transitions, player input, AI and wave progress.
         if (player == null) {
             return;
         }
@@ -140,6 +145,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         updateWaveProgress();
 
         if (player.getHealth() <= 0) {
+            SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
             SoundManager.stopAllLoops();
             gameState = GameState.GAME_OVER;
             input.firing = false;
@@ -187,8 +193,6 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (other instanceof EnginePlayer) {
-            ((EnginePlayer) other).takeDamage(projectile.getDamage());
-            destroyProjectile(projectile);
             return;
         }
 
@@ -293,9 +297,11 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
 
     private void startNewGame() {
         SoundManager.stopAllLoops();
+        SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
+        SoundManager.stopSound(RELAX_SOUND);
         SoundManager.playBackgroundMusic(MENU_MUSIC);
         SoundManager.warmUp(GAME_MUSIC, MENU_MUSIC, BOSS_MUSIC, AMBIENT_LOOP, "pistol.wav", "rifle.wav",
-                "shotgun.wav", "pistol_reload.wav", "rifle_reload.wav", "recarga_escopeta.wav");
+                "shotgun.wav", "pistol_reload.wav", "rifle_reload.wav", "recarga_escopeta.wav", ZOMBIE_GROAN_SOUND, RELAX_SOUND);
         preloadVisualAssets();
 
         if (player == null) {
@@ -308,6 +314,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         currentLevelIndex = 0;
         levelTransitioning = false;
         transitionFrames = 0;
+        exitDelayFrames = 0;
         nextLevelIndex = -1;
         announcementFrames = 0;
         gameState = GameState.MENU;
@@ -316,13 +323,18 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void loadLevel(int index, boolean fullReset) {
+        // Rebuild all level bodies every time we enter a new level.
         clearCurrentLevelBodies();
 
         GameLevels.LevelData level = levels[index];
         currentWave = 1;
         exitActive = false;
+        exitDelayFrames = 0;
+        relaxSoundPlayed = false;
         spawnCooldown = 0;
         bossMusicPlaying = false;
+        SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
+        SoundManager.stopSound(RELAX_SOUND);
         input.resetForStateChange();
         activeWallRects.clear();
 
@@ -333,7 +345,10 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
             wallBody.setLineColor(new Color(0, 0, 0, 0));
             wallBody.setName("wall");
             levelBodies.add(wallBody);
-            activeWallRects.add(wall);
+            if (isVisibleObstacle(wall)) {
+                // Only visible props should affect zombie pathfinding.
+                activeWallRects.add(wall);
+            }
         }
 
         for (GameLevels.PickupData pickup : level.pickups) {
@@ -382,7 +397,8 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         GameLevels.SpawnData spawn = pendingSpawns.poll();
-        EngineZombie zombie = new EngineZombie(this, spawn.kind, clampSpawnPosition(spawn.kind, spawn.position));
+        // Enemies should enter from the screen edge instead of appearing in the middle.
+        EngineZombie zombie = new EngineZombie(this, spawn.kind, spawnPositionAtEdge(spawn.kind, spawn.position));
         zombies.add(zombie);
         levelBodies.add(zombie);
         spawnCooldown = 18;
@@ -391,6 +407,8 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     private void updateZombies() {
         if (!zombies.isEmpty()) {
             SoundManager.play(ZOMBIE_GROAN_SOUND, 2500);
+        } else {
+            SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
         }
 
         for (EngineZombie zombie : new ArrayList<>(zombies)) {
@@ -402,15 +420,30 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (!bossMusicPlaying && getActiveBoss() != null) {
+            SoundManager.play(ZOMBIE_GROAN_SOUND);
             SoundManager.stopAllLoops();
             SoundManager.playBackgroundMusic(BOSS_MUSIC);
             bossMusicPlaying = true;
             showAnnouncement("FINAL BOSS", "Infernal Abomination");
+            return;
+        }
+
+        // If the boss is dead, switch back to the normal level mix immediately.
+        if (bossMusicPlaying && getActiveBoss() == null) {
+            bossMusicPlaying = false;
+            SoundManager.stopAllLoops();
+            if (!zombies.isEmpty() || !pendingSpawns.isEmpty()) {
+                playGameplayAudio();
+            }
         }
     }
 
     private void updateProjectiles() {
         for (EngineProjectile projectile : new ArrayList<>(projectiles)) {
+            // Zombies use ghostly fixtures, so damage is resolved manually here.
+            if (applyManualProjectileHit(projectile)) {
+                continue;
+            }
             Vec2 position = projectile.getPosition();
             if (!projectile.isAlive()
                     || projectile.tickLifetime()
@@ -419,6 +452,53 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
                 destroyProjectile(projectile);
             }
         }
+    }
+
+    private boolean applyManualProjectileHit(EngineProjectile projectile) {
+        if (!projectile.isAlive()) {
+            return false;
+        }
+
+        Vec2 projectilePosition = projectile.getPosition();
+        float projectileRadius = 0.16f;
+
+        if (projectile.isFromPlayer()) {
+            for (EngineZombie zombie : new ArrayList<>(zombies)) {
+                if (!zombie.isAlive()) {
+                    continue;
+                }
+
+                float hitRadius = projectileRadius + zombie.getCollisionHalfWidth();
+                if (!isWithinHitRadius(projectilePosition, zombie.getPosition(), hitRadius)) {
+                    continue;
+                }
+
+                zombie.takeDamage(projectile.getDamage());
+                SoundManager.play(getImpactSoundForCurrentWeapon(), 50);
+                if (!zombie.isAlive()) {
+                    queueDestroy(zombie);
+                    zombies.remove(zombie);
+                }
+                destroyProjectile(projectile);
+                return true;
+            }
+            return false;
+        }
+
+        float playerHitRadius = projectileRadius + 0.60f;
+        if (projectile.canHitPlayer()
+                && isWithinHitRadius(projectilePosition, player.getPosition(), playerHitRadius)) {
+            player.takeDamage(projectile.getDamage());
+            projectile.markPlayerHit();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isWithinHitRadius(Vec2 first, Vec2 second, float hitRadius) {
+        float dx = first.x - second.x;
+        float dy = first.y - second.y;
+        return dx * dx + dy * dy <= hitRadius * hitRadius;
     }
 
     private void updateWaveProgress() {
@@ -434,7 +514,20 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
             return;
         }
 
-        exitActive = true;
+        SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
+        if (!relaxSoundPlayed) {
+            SoundManager.play(RELAX_SOUND, 0);
+            relaxSoundPlayed = true;
+        }
+        if (exitDelayFrames == 0) {
+            exitDelayFrames = 180;
+            return;
+        }
+
+        exitDelayFrames--;
+        if (exitDelayFrames <= 0) {
+            exitActive = true;
+        }
     }
 
     private void queueWave(List<GameLevels.SpawnData> wave) {
@@ -465,7 +558,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private String getImpactSoundForCurrentWeapon() {
-        if (player.getWeapon().getPellets() > 1 || "Flamethrower".equalsIgnoreCase(player.getWeapon().getName())) {
+        if (player.getWeapon().getPellets() > 1 || "Shotgun".equalsIgnoreCase(player.getWeapon().getName())) {
             return "escopeta zombie hit .wav";
         }
         return "pistola zombie .wav";
@@ -485,63 +578,74 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     public Vec2 resolveZombieVelocity(EngineZombie zombie, float dx, float dy, float speed) {
+        // Try the direct path first, then slide on one axis, then try side steps.
         Vec2 currentPosition = zombie.getPosition();
         float moveX = dx * speed;
         float moveY = dy * speed;
         float halfWidth = zombie.getCollisionHalfWidth();
         float halfHeight = zombie.getCollisionHalfHeight();
-
-        if (!collidesAt(currentPosition.x + moveX, currentPosition.y + moveY,
-                halfWidth, halfHeight)) {
-            return new Vec2(moveX, moveY);
+        Vec2 directVelocity = velocityTowards(currentPosition, moveX, moveY, halfWidth, halfHeight);
+        if (directVelocity != null) {
+            return directVelocity;
         }
 
-        float[] steerAngles = {22f, -22f, 45f, -45f, 68f, -68f, 90f, -90f};
-        for (float steerAngle : steerAngles) {
-            Vec2 steeredVelocity = steeredVelocity(dx, dy, speed, steerAngle);
-            if (!collidesAt(currentPosition.x + steeredVelocity.x, currentPosition.y + steeredVelocity.y,
-                    halfWidth, halfHeight)) {
-                return steeredVelocity;
-            }
+        Vec2 horizontalVelocity = velocityTowards(currentPosition, moveX, 0f, halfWidth, halfHeight);
+        if (horizontalVelocity != null) {
+            return horizontalVelocity;
         }
 
-        boolean preferHorizontal = Math.abs(moveX) >= Math.abs(moveY);
-        if (preferHorizontal) {
-            if (!collidesAt(currentPosition.x + moveX, currentPosition.y, halfWidth, halfHeight)) {
-                return new Vec2(moveX, 0f);
-            }
-            if (!collidesAt(currentPosition.x, currentPosition.y + moveY, halfWidth, halfHeight)) {
-                return new Vec2(0f, moveY);
-            }
-        } else {
-            if (!collidesAt(currentPosition.x, currentPosition.y + moveY, halfWidth, halfHeight)) {
-                return new Vec2(0f, moveY);
-            }
-            if (!collidesAt(currentPosition.x + moveX, currentPosition.y, halfWidth, halfHeight)) {
-                return new Vec2(moveX, 0f);
-            }
+        Vec2 verticalVelocity = velocityTowards(currentPosition, 0f, moveY, halfWidth, halfHeight);
+        if (verticalVelocity != null) {
+            return verticalVelocity;
         }
 
-        float leftX = -dy * speed * 0.7f;
-        float leftY = dx * speed * 0.7f;
-        if (!collidesAt(currentPosition.x + leftX, currentPosition.y + leftY, halfWidth, halfHeight)) {
-            return new Vec2(leftX, leftY);
+        Vec2 leftSlide = velocityTowards(currentPosition, -dy * speed * 0.7f, dx * speed * 0.7f, halfWidth, halfHeight);
+        if (leftSlide != null) {
+            return leftSlide;
         }
 
-        float rightX = dy * speed * 0.7f;
-        float rightY = -dx * speed * 0.7f;
-        if (!collidesAt(currentPosition.x + rightX, currentPosition.y + rightY, halfWidth, halfHeight)) {
-            return new Vec2(rightX, rightY);
+        Vec2 rightSlide = velocityTowards(currentPosition, dy * speed * 0.7f, -dx * speed * 0.7f, halfWidth, halfHeight);
+        if (rightSlide != null) {
+            return rightSlide;
         }
 
-        return new Vec2(0f, 0f);
+        return nudgeInsideWorld(currentPosition, halfWidth, halfHeight, speed);
     }
 
-    private Vec2 steeredVelocity(float dx, float dy, float speed, float angleDegrees) {
-        float radians = (float) Math.toRadians(angleDegrees);
-        float steeredX = (float) (dx * Math.cos(radians) - dy * Math.sin(radians));
-        float steeredY = (float) (dx * Math.sin(radians) + dy * Math.cos(radians));
-        return new Vec2(steeredX * speed, steeredY * speed);
+    private Vec2 velocityTowards(Vec2 currentPosition, float deltaX, float deltaY, float halfWidth, float halfHeight) {
+        // Clamp the candidate move to the playable area so corners do not freeze enemies.
+        float targetX = clampToWorld(currentPosition.x + deltaX, halfWidth, WORLD_WIDTH);
+        float targetY = clampToWorld(currentPosition.y + deltaY, halfHeight, WORLD_HEIGHT);
+        if (collidesAt(targetX, targetY, halfWidth, halfHeight)) {
+            return null;
+        }
+        return new Vec2(targetX - currentPosition.x, targetY - currentPosition.y);
+    }
+
+    private Vec2 nudgeInsideWorld(Vec2 position, float halfWidth, float halfHeight, float speed) {
+        // Final fallback when the zombie has drifted too close to the world boundary.
+        float nudgedX = clampToWorld(position.x, halfWidth, WORLD_WIDTH);
+        float nudgedY = clampToWorld(position.y, halfHeight, WORLD_HEIGHT);
+        Vec2 nudge = new Vec2(nudgedX - position.x, nudgedY - position.y);
+        if (nudge.lengthSquared() == 0f) {
+            return new Vec2(0f, 0f);
+        }
+        if (nudge.lengthSquared() > speed * speed) {
+            nudge.normalize();
+            nudge.mulLocal(speed);
+        }
+        return nudge;
+    }
+
+    private float clampToWorld(float value, float halfSize, float worldSize) {
+        return Math.max(halfSize, Math.min(worldSize - halfSize, value));
+    }
+
+    private boolean isVisibleObstacle(GameLevels.RectData wall) {
+        return wall.position.x >= 0f
+                && wall.position.x <= WORLD_WIDTH
+                && wall.position.y >= 0f
+                && wall.position.y <= WORLD_HEIGHT;
     }
 
     private boolean collidesAt(float centerX, float centerY, float halfWidth, float halfHeight) {
@@ -552,17 +656,28 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
                 return true;
             }
         }
-        return centerX - halfWidth < 0f
-                || centerX + halfWidth > WORLD_WIDTH
-                || centerY - halfHeight < 0f
-                || centerY + halfHeight > WORLD_HEIGHT;
+        return false;
     }
 
-    private Vec2 clampSpawnPosition(EngineZombie.Kind kind, Vec2 position) {
+    private Vec2 spawnPositionAtEdge(EngineZombie.Kind kind, Vec2 position) {
         float halfWidth = collisionHalfWidthFor(kind);
         float halfHeight = collisionHalfHeightFor(kind);
-        float clampedX = Math.max(halfWidth, Math.min(WORLD_WIDTH - halfWidth, position.x));
-        float clampedY = Math.max(halfHeight, Math.min(WORLD_HEIGHT - halfHeight, position.y));
+        float edgePadding = 0.95f;
+        float clampedX = Math.max(halfWidth + edgePadding, Math.min(WORLD_WIDTH - halfWidth - edgePadding, position.x));
+        float clampedY = Math.max(halfHeight + edgePadding, Math.min(WORLD_HEIGHT - halfHeight - edgePadding, position.y));
+
+        if (position.x <= 0f) {
+            clampedX = halfWidth + edgePadding;
+        } else if (position.x >= WORLD_WIDTH) {
+            clampedX = WORLD_WIDTH - halfWidth - edgePadding;
+        }
+
+        if (position.y <= 0f) {
+            clampedY = halfHeight + edgePadding;
+        } else if (position.y >= WORLD_HEIGHT) {
+            clampedY = WORLD_HEIGHT - halfHeight - edgePadding;
+        }
+
         return new Vec2(clampedX, clampedY);
     }
 

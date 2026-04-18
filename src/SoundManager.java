@@ -31,9 +31,10 @@ public final class SoundManager {
     private static String currentAmbientTrack;
 
     static {
-        VOLUME_ADJUSTMENTS.put("pistol.wav", -27.0f);
-        VOLUME_ADJUSTMENTS.put("rifle.wav", -16.0f);
-        VOLUME_ADJUSTMENTS.put("shotgun.wav", -18.0f);
+        // Gunshot balance: these values keep weapon SFX under the music and ambience.
+        VOLUME_ADJUSTMENTS.put("pistol.wav", -35.0f);
+        VOLUME_ADJUSTMENTS.put("rifle.wav", -26.0f);
+        VOLUME_ADJUSTMENTS.put("shotgun.wav", -28.0f);
 
         VOLUME_ADJUSTMENTS.put("pistol_reload.wav", -5.0f);
         VOLUME_ADJUSTMENTS.put("rifle_reload.wav", -4.0f);
@@ -155,6 +156,22 @@ public final class SoundManager {
             ambientClip = null;
             currentBackgroundTrack = null;
             currentAmbientTrack = null;
+        });
+    }
+
+    public static void stopSound(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            return;
+        }
+
+        AUDIO_EXECUTOR.execute(() -> {
+            List<Clip> clips = ACTIVE_CLIPS.remove(fileName);
+            if (clips == null) {
+                return;
+            }
+            for (Clip clip : clips) {
+                stopClip(clip);
+            }
         });
     }
 

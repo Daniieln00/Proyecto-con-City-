@@ -8,6 +8,7 @@ public final class GameLevels {
     }
 
     public static LevelData[] buildLevels() {
+        // All level content is defined here so world logic stays smaller.
         return new LevelData[] {
                 buildLevel1(),
                 buildLevel2(),
@@ -50,18 +51,16 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.BASIC, 1035, 100),
                 spawn(EngineZombie.Kind.BASIC, 760, -60),
                 spawn(EngineZombie.Kind.FAST, -60, 560),
-                spawn(EngineZombie.Kind.FAST, 540, 735),
                 spawn(EngineZombie.Kind.TANK, 1035, 500)
         ));
 
         level.waves.add(wave(
                 spawn(EngineZombie.Kind.BASIC, -60, 160),
-                spawn(EngineZombie.Kind.BASIC, 700, -60),
+                spawn(EngineZombie.Kind.BASIC, 1240, 180),
                 spawn(EngineZombie.Kind.BASIC, 1035, 200),
                 spawn(EngineZombie.Kind.FAST, 760, -60),
                 spawn(EngineZombie.Kind.FAST, 1035, 240),
-                spawn(EngineZombie.Kind.BASIC, -60, 420),
-                spawn(EngineZombie.Kind.TANK, 600, 735)
+                spawn(EngineZombie.Kind.TANK, 540, 880)
         ));
         return level;
     }
@@ -105,8 +104,9 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.FAST, 1035, 520),
                 spawn(EngineZombie.Kind.FAST, 1035, 260),
                 spawn(EngineZombie.Kind.FAST, 860, -60),
-                spawn(EngineZombie.Kind.BASIC, 520, 735),
-                spawn(EngineZombie.Kind.TANK, 520, -60)
+                spawn(EngineZombie.Kind.BASIC, 520, 880),
+                spawn(EngineZombie.Kind.TANK, 520, -60),
+                spawn(EngineZombie.Kind.BASIC, 1240, 520)
         ));
 
         level.waves.add(wave(
@@ -118,7 +118,9 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.FAST, 900, -60),
                 spawn(EngineZombie.Kind.BASIC, -60, 560),
                 spawn(EngineZombie.Kind.TANK, 850, -60),
-                spawn(EngineZombie.Kind.TANK, 1035, 440)
+                spawn(EngineZombie.Kind.TANK, 1035, 440),
+                spawn(EngineZombie.Kind.FAST, 1240, 600),
+                spawn(EngineZombie.Kind.BASIC, -60, 660)
         ));
         return level;
     }
@@ -169,7 +171,8 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.BASIC, 1240, 260),
                 spawn(EngineZombie.Kind.TANK, 560, -60),
                 spawn(EngineZombie.Kind.TANK, 560, 880),
-                spawn(EngineZombie.Kind.TANK, 1240, 410)
+                spawn(EngineZombie.Kind.TANK, 1240, 410),
+                spawn(EngineZombie.Kind.FAST, 1240, 580)
         ));
 
         level.waves.add(wave(
@@ -182,7 +185,8 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.BASIC, -60, 220),
                 spawn(EngineZombie.Kind.TANK, 560, -60),
                 spawn(EngineZombie.Kind.TANK, 560, 880),
-                spawn(EngineZombie.Kind.TANK, 1240, 410)
+                spawn(EngineZombie.Kind.TANK, 1240, 410),
+                spawn(EngineZombie.Kind.FAST, -60, 620)
         ));
 
         level.waves.add(wave(
@@ -191,7 +195,8 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.FAST, 1240, 410),
                 spawn(EngineZombie.Kind.BASIC, 560, 880),
                 spawn(EngineZombie.Kind.TANK, 560, 880),
-                spawn(EngineZombie.Kind.TANK, -60, 410)
+                spawn(EngineZombie.Kind.TANK, -60, 410),
+                spawn(EngineZombie.Kind.FAST, 1240, 620)
         ));
         return level;
     }
@@ -205,6 +210,7 @@ public final class GameLevels {
     }
 
     private static void addWorldBounds(LevelData level) {
+        // Invisible border that keeps the player and projectiles inside the map.
         int thickness = 48;
         level.walls.add(rectData(-thickness, -thickness, thickness, EngineGameWorld.VIEW_HEIGHT + thickness * 2));
         level.walls.add(rectData(EngineGameWorld.VIEW_WIDTH, -thickness, thickness, EngineGameWorld.VIEW_HEIGHT + thickness * 2));
@@ -235,6 +241,7 @@ public final class GameLevels {
     }
 
     private static RectData obstacleRectData(int pixelX, int pixelY, int pixelWidth, int pixelHeight) {
+        // Visible props use a slightly smaller collision box than the sprite bounds.
         int shrunkWidth = Math.max(16, Math.round(pixelWidth * 0.68f));
         int shrunkHeight = Math.max(16, Math.round(pixelHeight * 0.68f));
         int offsetX = pixelX + (pixelWidth - shrunkWidth) / 2;

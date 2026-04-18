@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EnginePlayer extends DynamicBody {
-    private static final BoxShape SHAPE = new BoxShape(0.38f, 0.48f);
+    private static final BoxShape SHAPE = new BoxShape(0.39f, 0.50f);
     private static final String PLAYER_HURT_SOUND = "player_pain.wav";
     private static final String PLAYER_SPRITES_ROOT = "assets/sprites/player";
     private static final BufferedImage[] PISTOL_WALK_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/pistol_walk");
@@ -45,10 +45,12 @@ public class EnginePlayer extends DynamicBody {
         setFillColor(new Color(0, 0, 0, 0));
         setLineColor(new Color(0, 0, 0, 0));
         setPosition(startPosition);
+        setAngularVelocity(0f);
         refreshImage();
     }
 
     public void update(InputState input) {
+        // Movement and combat state are updated together once per frame.
         float dx = 0f;
         float dy = 0f;
 
@@ -100,6 +102,7 @@ public class EnginePlayer extends DynamicBody {
 
     public void stopMotion() {
         setLinearVelocity(new Vec2(0f, 0f));
+        setAngularVelocity(0f);
     }
 
     public void setAimTowards(Vec2 target) {
@@ -115,12 +118,12 @@ public class EnginePlayer extends DynamicBody {
         }
         aimX = dx / length;
         aimY = dy / length;
-        // The top-down player sprite points downward by default, so we rotate
-        // it by +90 degrees to align the weapon with the mouse direction.
+        // The sprite faces downward in the source art, so we rotate by +90 degrees.
         setAngle((float) (Math.atan2(aimY, aimX) + Math.PI / 2.0));
     }
 
     public List<EngineProjectile> tryShoot(EngineGameWorld world) {
+        // Build one projectile for single-shot weapons or several pellets for the shotgun.
         List<EngineProjectile> projectiles = new ArrayList<>();
         if (reloading || !weapon.canShoot()) {
             return projectiles;
@@ -267,6 +270,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     private String getCurrentSpritePath() {
+        // Idle uses the first walk frame; movement and shooting use animated sequences.
         BufferedImage[] frames = getFramesForCurrentState();
         if (frames.length == 0) {
             return null;
@@ -292,7 +296,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     private BufferedImage[] getWalkFramesForWeapon() {
-        if ("Flamethrower".equalsIgnoreCase(weapon.getName())) {
+        if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
             return FLAMETHROWER_WALK_FRAMES;
         }
         if ("Rifle".equalsIgnoreCase(weapon.getName())) {
@@ -302,7 +306,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     private BufferedImage[] getShootFramesForWeapon() {
-        if ("Flamethrower".equalsIgnoreCase(weapon.getName())) {
+        if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
             return FLAMETHROWER_SHOOT_FRAMES;
         }
         if ("Rifle".equalsIgnoreCase(weapon.getName())) {
@@ -312,7 +316,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     private String getFramePathForCurrentWeapon(int frameIndex, boolean shooting) {
-        if ("Flamethrower".equalsIgnoreCase(weapon.getName())) {
+        if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
             return shooting
                     ? String.format("assets/sprites/player/flamethrower_shoot/FlameThrower_%03d.png", frameIndex)
                     : String.format("assets/sprites/player/flamethrower_walk/Walk_firethrower_%03d.png", frameIndex);
@@ -333,22 +337,22 @@ public class EnginePlayer extends DynamicBody {
         if ("Rifle".equalsIgnoreCase(weapon.getName())) {
             return "assets/sprites/player/rifle_walk_v2/Walk_riffle_000.png";
         }
-        if ("Flamethrower".equalsIgnoreCase(weapon.getName())) {
+        if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
             return "assets/sprites/player/flamethrower_walk/Walk_firethrower_000.png";
         }
         return "assets/sprites/player/pistol_walk/Walk_gun_000.png";
     }
 
     private float getCurrentSpriteHeight() {
-        if ("Rifle".equalsIgnoreCase(weapon.getName()) || "Flamethrower".equalsIgnoreCase(weapon.getName())) {
-            return 2.4f;
+        if ("Rifle".equalsIgnoreCase(weapon.getName()) || "Shotgun".equalsIgnoreCase(weapon.getName())) {
+            return 2.45f;
         }
-        return 2.0f;
+        return 2.05f;
     }
 
     public static void preloadAssets() {
-        SpriteLoader.preloadBodyImagesAsync(2.0f, concat(PISTOL_WALK_PATHS, PISTOL_SHOOT_PATHS));
-        SpriteLoader.preloadBodyImagesAsync(2.4f, concat(RIFLE_WALK_PATHS, RIFLE_SHOOT_PATHS, FLAMETHROWER_WALK_PATHS, FLAMETHROWER_SHOOT_PATHS));
+        SpriteLoader.preloadBodyImagesAsync(2.05f, concat(PISTOL_WALK_PATHS, PISTOL_SHOOT_PATHS));
+        SpriteLoader.preloadBodyImagesAsync(2.45f, concat(RIFLE_WALK_PATHS, RIFLE_SHOOT_PATHS, FLAMETHROWER_WALK_PATHS, FLAMETHROWER_SHOOT_PATHS));
     }
 
     private static String[] createFramePaths(String format, int frameCount) {

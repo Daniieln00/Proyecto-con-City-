@@ -140,10 +140,10 @@ public class Weapon {
     }
 
     public static Weapon rifle() {
-        return new Weapon("Rifle", 24, 8, 18, 1, 0, "rifle.wav", 24, 144, 70, "rifle_reload.wav", "rifle");
+        return new Weapon("Rifle", 32, 8, 19, 1, 0, "rifle.wav", 24, 168, 70, "rifle_reload.wav", "rifle");
     }
 
     public static Weapon shotgun() {
-        return new Weapon("Flamethrower", 18, 20, 15, 6, 0.24, "shotgun.wav", 6, 42, 120, "recarga_escopeta.wav", "fire");
+        return new Weapon("Shotgun", 24, 18, 15, 6, 0.22, "shotgun.wav", 6, 48, 110, "recarga_escopeta.wav", "shotgun");
     }
 }

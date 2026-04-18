@@ -1,10 +1,10 @@
 import city.cs.engine.BodyImage;
 import city.cs.engine.BoxShape;
 import city.cs.engine.DynamicBody;
+import city.cs.engine.GhostlyFixture;
 import org.jbox2d.common.Vec2;
 
 import java.awt.Color;
-import java.awt.image.BufferedImage;
 import java.util.Random;
 
 public class EngineZombie extends DynamicBody {
@@ -45,7 +45,9 @@ public class EngineZombie extends DynamicBody {
     private String currentSpritePath;
 
     public EngineZombie(EngineGameWorld world, Kind kind, Vec2 position) {
-        super(world, createShape(kind));
+        super(world);
+        // GhostlyFixture stops zombies from physically clogging narrow spaces.
+        new GhostlyFixture(this, createShape(kind));
         this.kind = kind;
         this.maxHealth = maxHealthFor(kind);
         this.health = maxHealth;
@@ -58,10 +60,12 @@ public class EngineZombie extends DynamicBody {
         setFillColor(new Color(0, 0, 0, 0));
         setLineColor(new Color(0, 0, 0, 0));
         setPosition(position);
+        setAngularVelocity(0f);
         refreshImage();
     }
 
     public void update(EngineGameWorld world, EnginePlayer player) {
+        // Each zombie only needs simple chase logic plus optional boss attacks.
         if (attackCooldownFrames > 0) {
             attackCooldownFrames--;
         }
@@ -92,6 +96,7 @@ public class EngineZombie extends DynamicBody {
         float effectiveSpeed = getEffectiveSpeed();
         Vec2 desiredVelocity = world.resolveZombieVelocity(this, dx, dy, effectiveSpeed);
         setLinearVelocity(desiredVelocity);
+        setAngularVelocity(0f);
         setAngle((float) (Math.atan2(dy, dx) + Math.PI / 2.0));
         animationTick++;
 
@@ -102,9 +107,9 @@ public class EngineZombie extends DynamicBody {
                 rushCooldownFrames = 180;
             }
             attackAnimationFrames = Math.max(attackAnimationFrames, 18);
-            Vec2 velocity = new Vec2(dx * 6.5f, dy * 6.5f);
-            world.spawnProjectile(new EngineProjectile(world, new Vec2(myPos.x + dx * 1.1f, myPos.y + dy * 1.1f),
-                    velocity, 14, "fire", false));
+            Vec2 velocity = new Vec2(dx * 7.5f, dy * 7.5f);
+            world.spawnProjectile(new EngineProjectile(world, new Vec2(myPos.x + dx * 2.1f, myPos.y + dy * 2.1f),
+                    velocity, 14, "boss_fire", false));
         }
 
         if (length <= getAttackRange() && canAttack()) {
@@ -238,11 +243,11 @@ public class EngineZombie extends DynamicBody {
     private static float imageHeightFor(Kind kind) {
         switch (kind) {
             case TANK:
-                return 2.8f;
+                return 3.2f;
             case BOSS:
-                return 4.2f;
+                return 6.0f;
             default:
-                return 1.8f;
+                return 2.1f;
         }
     }
 
@@ -277,11 +282,11 @@ public class EngineZombie extends DynamicBody {
 
     public static void preloadAssets() {
         for (String[] variant : STANDARD_VARIANT_PATHS) {
-            SpriteLoader.preloadBodyImagesAsync(1.8f, variant);
+            SpriteLoader.preloadBodyImagesAsync(2.1f, variant);
         }
-        SpriteLoader.preloadBodyImagesAsync(2.8f, TANK_PATHS);
-        SpriteLoader.preloadBodyImagesAsync(4.2f, BOSS_WALK_PATHS);
-        SpriteLoader.preloadBodyImagesAsync(4.2f, BOSS_ATTACK_PATHS);
+        SpriteLoader.preloadBodyImagesAsync(3.2f, TANK_PATHS);
+        SpriteLoader.preloadBodyImagesAsync(6.0f, BOSS_WALK_PATHS);
+        SpriteLoader.preloadBodyImagesAsync(6.0f, BOSS_ATTACK_PATHS);
     }
 
     private static String[] createFramePaths(String format, int frameCount) {

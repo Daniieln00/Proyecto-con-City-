@@ -5,7 +5,7 @@ import javax.swing.SwingUtilities;
 
 public class Main {
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(()  -> {
             InputState input = new InputState();
             EngineGameWorld world = new EngineGameWorld(input);
             UserView view = new EngineGameView(world, input, EngineGameWorld.VIEW_WIDTH, EngineGameWorld.VIEW_HEIGHT);

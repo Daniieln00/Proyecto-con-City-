@@ -107,7 +107,7 @@ public class EngineGameView extends UserView {
 
         if (gameWorld.isExitActive()) {
             g.setColor(Color.YELLOW);
-            g.drawString("Exit open", 170, 116);
+            g.drawString(getPortalLabel() + " open", 170, 116);
         }
 
         EngineZombie boss = gameWorld.getActiveBoss();
@@ -172,16 +172,31 @@ public class EngineGameView extends UserView {
         int height = Math.max(56, Math.abs(Math.round((center.y - edge.y) * 2)));
         int x = Math.round(center.x) - width / 2;
         int y = Math.round(center.y) - height / 2;
+        float pulse = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 420.0);
+        int outerAlpha = 70 + Math.round(pulse * 35);
+        int innerAlpha = 115 + Math.round(pulse * 45);
 
-        g.setColor(new Color(60, 15, 115, 80));
-        g.fillOval(x - 12, y - 12, width + 24, height + 24);
-        g.setColor(new Color(140, 40, 210, 120));
-        g.fillOval(x - 4, y - 4, width + 8, height + 8);
-        g.setColor(new Color(110, 245, 255, 235));
+        g.setColor(new Color(242, 224, 187, outerAlpha));
+        g.fillOval(x - 14, y - 14, width + 28, height + 28);
+        g.setColor(new Color(255, 243, 217, innerAlpha));
+        g.fillOval(x - 6, y - 6, width + 12, height + 12);
+        g.setColor(new Color(255, 248, 232, 235));
+        g.fillOval(x, y, width, height);
+        g.setColor(new Color(191, 163, 118, 220));
         g.drawOval(x, y, width, height);
-        g.drawOval(x + 6, y + 6, width - 12, height - 12);
+        g.drawOval(x + 8, y + 8, width - 16, height - 16);
         g.setFont(EXIT_FONT);
-        g.drawString("EXIT", x + Math.max(10, width / 2 - 18), y - 8);
+        g.drawString(getPortalLabel(), x + Math.max(10, width / 2 - 26), y - 8);
+    }
+
+    private String getPortalLabel() {
+        if (gameWorld.getCurrentLevelIndex() == 0) {
+            return "LEVEL 2";
+        }
+        if (gameWorld.getCurrentLevelIndex() == 1) {
+            return "LEVEL 3";
+        }
+        return "ESCAPE";
     }
 
     private void drawOverlay(Graphics2D g) {
@@ -213,7 +228,7 @@ public class EngineGameView extends UserView {
         }
 
         if (gameWorld.getGameState() == GameState.VICTORY) {
-            drawCenteredPanel(g, "YOU WIN", "Press R to play again");
+            drawCenteredPanel(g, "NIGHT SURVIVED", "You escaped. Press R to play again");
         }
     }
 
