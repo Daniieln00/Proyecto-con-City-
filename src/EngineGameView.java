@@ -22,7 +22,6 @@ public class EngineGameView extends UserView {
     private static final Map<String, BufferedImage> BACKGROUND_CACHE = new HashMap<>();
     private static final String MENU_BACKGROUND_PATH = "assets/menu_inicio.png";
     private static final Font HUD_FONT = new Font("Arial", Font.BOLD, 14);
-    private static final Font EXIT_FONT = new Font("Arial", Font.BOLD, 16);
     private static final Font TITLE_FONT = new Font("Serif", Font.BOLD, 42);
     private static final Font SUBTITLE_BOLD_FONT = new Font("Serif", Font.BOLD, 19);
     private static final Font SUBTITLE_FONT = new Font("Serif", Font.PLAIN, 18);
@@ -33,6 +32,7 @@ public class EngineGameView extends UserView {
     private transient final EngineGameWorld gameWorld;
     private transient final InputState input;
 
+    // Crea la vista y conecta teclado y raton.
     public EngineGameView(EngineGameWorld world, InputState input, int width, int height) {
         super(world, width, height);
         this.gameWorld = world;
@@ -51,6 +51,7 @@ public class EngineGameView extends UserView {
 
     @Override
     protected void paintBackground(Graphics2D g) {
+        // Dibuja el fondo del nivel y la decoracion fija.
         applyDamageShake(g);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
@@ -65,7 +66,9 @@ public class EngineGameView extends UserView {
 
     @Override
     protected void paintForeground(Graphics2D g) {
+        // Dibuja la interfaz, barras de vida, portal y mensajes en pantalla.
         applyDamageShake(g);
+        drawBloodEffects(g);
         drawExitPortal(g);
         drawZombieHealthBars(g);
         drawHud(g);
@@ -81,6 +84,7 @@ public class EngineGameView extends UserView {
             return;
         }
 
+        // El HUD solo sale cuando estamos jugando.
         EnginePlayer player = gameWorld.getPlayer();
 
         g.setColor(new Color(0, 0, 0, 150));
@@ -105,11 +109,6 @@ public class EngineGameView extends UserView {
         g.setColor(player.isReloading() ? Color.ORANGE : Color.LIGHT_GRAY);
         g.drawString(player.isReloading() ? "Reloading..." : "Press R to reload", 170, 94);
 
-        if (gameWorld.isExitActive()) {
-            g.setColor(Color.YELLOW);
-            g.drawString(getPortalLabel() + " open", 170, 116);
-        }
-
         EngineZombie boss = gameWorld.getActiveBoss();
         if (boss != null) {
             g.setColor(new Color(0, 0, 0, 180));
@@ -126,12 +125,14 @@ public class EngineGameView extends UserView {
     }
 
     private void drawDecorations(Graphics2D g) {
+        // Dibuja objetos del escenario que no se mueven.
         for (GameLevels.DecorationData decoration : gameWorld.getCurrentDecorations()) {
             g.drawImage(getBackgroundImage(decoration.imagePath), decoration.x, decoration.y, decoration.width, decoration.height, null);
         }
     }
 
     private void drawZombieHealthBars(Graphics2D g) {
+        // Dibuja la vida de zombies normales.
         if (gameWorld.getGameState() != GameState.PLAYING && gameWorld.getGameState() != GameState.PAUSED) {
             return;
         }
@@ -164,42 +165,47 @@ public class EngineGameView extends UserView {
             return;
         }
 
+        // La salida ahora es mas visual y no lleva texto encima.
         EngineExit exit = gameWorld.getExit();
         Vec2 exitPos = exit.getPosition();
         Point2D.Float center = worldToView(exitPos);
         Point2D.Float edge = worldToView(new Vec2(exitPos.x + exit.getHalfWidth(), exitPos.y + exit.getHalfHeight()));
-        int width = Math.max(48, Math.abs(Math.round((edge.x - center.x) * 2)));
-        int height = Math.max(56, Math.abs(Math.round((center.y - edge.y) * 2)));
+        int width = Math.max(72, Math.abs(Math.round((edge.x - center.x) * 2)));
+        int height = Math.max(92, Math.abs(Math.round((center.y - edge.y) * 2)));
         int x = Math.round(center.x) - width / 2;
         int y = Math.round(center.y) - height / 2;
         float pulse = 0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() / 420.0);
-        int outerAlpha = 70 + Math.round(pulse * 35);
-        int innerAlpha = 115 + Math.round(pulse * 45);
+        int outerAlpha = 85 + Math.round(pulse * 40);
+        int innerAlpha = 130 + Math.round(pulse * 45);
 
-        g.setColor(new Color(242, 224, 187, outerAlpha));
-        g.fillOval(x - 14, y - 14, width + 28, height + 28);
-        g.setColor(new Color(255, 243, 217, innerAlpha));
-        g.fillOval(x - 6, y - 6, width + 12, height + 12);
-        g.setColor(new Color(255, 248, 232, 235));
-        g.fillOval(x, y, width, height);
-        g.setColor(new Color(191, 163, 118, 220));
-        g.drawOval(x, y, width, height);
-        g.drawOval(x + 8, y + 8, width - 16, height - 16);
-        g.setFont(EXIT_FONT);
-        g.drawString(getPortalLabel(), x + Math.max(10, width / 2 - 26), y - 8);
+        g.setColor(new Color(245, 230, 195, outerAlpha));
+        g.fillOval(x - 24, y + height - 18, width + 48, 42);
+        g.setColor(new Color(255, 246, 224, innerAlpha));
+        g.fillRoundRect(x + 10, y - 10, width - 20, height + 20, 26, 26);
+        g.setColor(new Color(255, 250, 240, 205));
+        g.fillRoundRect(x + 22, y + 8, width - 44, height - 16, 20, 20);
+        g.setColor(new Color(199, 177, 130, 210));
+        g.drawRoundRect(x + 10, y - 10, width - 20, height + 20, 26, 26);
+        g.drawOval(x - 8, y + height - 8, width + 16, 16);
     }
 
-    private String getPortalLabel() {
-        if (gameWorld.getCurrentLevelIndex() == 0) {
-            return "LEVEL 2";
+    private void drawBloodEffects(Graphics2D g) {
+        for (EngineGameWorld.BloodEffect blood : gameWorld.getBloodEffects()) {
+            Point2D.Float center = worldToView(blood.position);
+            Point2D.Float edge = worldToView(new Vec2(blood.position.x + blood.radius, blood.position.y));
+            int radius = Math.max(10, Math.abs(Math.round(edge.x - center.x)));
+            float fade = blood.getFramesLeft() / (float) blood.maxFrames;
+            int alpha = Math.max(0, Math.min(150, Math.round(fade * 140)));
+
+            g.setColor(new Color(110, 10, 10, alpha));
+            g.fillOval(Math.round(center.x) - radius, Math.round(center.y) - radius / 2, radius * 2, radius);
+            g.setColor(new Color(145, 18, 18, Math.max(0, alpha - 25)));
+            g.fillOval(Math.round(center.x) - radius / 2, Math.round(center.y) - radius / 3, radius, Math.max(8, radius / 2));
         }
-        if (gameWorld.getCurrentLevelIndex() == 1) {
-            return "LEVEL 3";
-        }
-        return "ESCAPE";
     }
 
     private void drawOverlay(Graphics2D g) {
+        // Estos mensajes salen encima de todo: pausa, muerte, victoria y avisos.
         if (gameWorld.getGameState() == GameState.MENU) {
             drawMenuOverlay(g);
             return;

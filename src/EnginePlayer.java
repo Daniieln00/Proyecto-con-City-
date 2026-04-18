@@ -1,29 +1,20 @@
-import city.cs.engine.BodyImage;
 import city.cs.engine.BoxShape;
 import city.cs.engine.DynamicBody;
 import org.jbox2d.common.Vec2;
 
 import java.awt.Color;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
 public class EnginePlayer extends DynamicBody {
     private static final BoxShape SHAPE = new BoxShape(0.39f, 0.50f);
     private static final String PLAYER_HURT_SOUND = "player_pain.wav";
-    private static final String PLAYER_SPRITES_ROOT = "assets/sprites/player";
-    private static final BufferedImage[] PISTOL_WALK_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/pistol_walk");
-    private static final BufferedImage[] PISTOL_SHOOT_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/pistol_shoot");
-    private static final BufferedImage[] RIFLE_WALK_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/rifle_walk_v2");
-    private static final BufferedImage[] RIFLE_SHOOT_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/rifle_shoot");
-    private static final BufferedImage[] FLAMETHROWER_WALK_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/flamethrower_walk");
-    private static final BufferedImage[] FLAMETHROWER_SHOOT_FRAMES = SpriteLoader.loadFrames(PLAYER_SPRITES_ROOT + "/flamethrower_shoot");
-    private static final String[] PISTOL_WALK_PATHS = createFramePaths("assets/sprites/player/pistol_walk/Walk_gun_%03d.png", PISTOL_WALK_FRAMES.length);
-    private static final String[] PISTOL_SHOOT_PATHS = createFramePaths("assets/sprites/player/pistol_shoot/Gun_Shot_%03d.png", PISTOL_SHOOT_FRAMES.length);
-    private static final String[] RIFLE_WALK_PATHS = createFramePaths("assets/sprites/player/rifle_walk_v2/Walk_riffle_%03d.png", RIFLE_WALK_FRAMES.length);
-    private static final String[] RIFLE_SHOOT_PATHS = createFramePaths("assets/sprites/player/rifle_shoot/Riffle_%03d.png", RIFLE_SHOOT_FRAMES.length);
-    private static final String[] FLAMETHROWER_WALK_PATHS = createFramePaths("assets/sprites/player/flamethrower_walk/Walk_firethrower_%03d.png", FLAMETHROWER_WALK_FRAMES.length);
-    private static final String[] FLAMETHROWER_SHOOT_PATHS = createFramePaths("assets/sprites/player/flamethrower_shoot/FlameThrower_%03d.png", FLAMETHROWER_SHOOT_FRAMES.length);
+    private static final String[] PISTOL_WALK_PATHS = createFramePaths("assets/sprites/player/pistol_walk/Walk_gun_%03d.png", 6);
+    private static final String[] PISTOL_SHOOT_PATHS = createFramePaths("assets/sprites/player/pistol_shoot/Gun_Shot_%03d.png", 5);
+    private static final String[] RIFLE_WALK_PATHS = createFramePaths("assets/sprites/player/rifle_walk_v2/Walk_riffle_%03d.png", 6);
+    private static final String[] RIFLE_SHOOT_PATHS = createFramePaths("assets/sprites/player/rifle_shoot/Riffle_%03d.png", 9);
+    private static final String[] SHOTGUN_WALK_PATHS = createFramePaths("assets/sprites/player/flamethrower_walk/Walk_firethrower_%03d.png", 6);
+    private static final String[] SHOTGUN_SHOOT_PATHS = createFramePaths("assets/sprites/player/flamethrower_shoot/FlameThrower_%03d.png", 9);
 
     private int maxHealth = 140;
     private int health = 140;
@@ -39,6 +30,7 @@ public class EnginePlayer extends DynamicBody {
     private String currentSpritePath;
     private boolean visible = true;
 
+    // Crea al jugador y coloca su imagen inicial.
     public EnginePlayer(EngineGameWorld world, Vec2 startPosition) {
         super(world, SHAPE);
         setGravityScale(0f);
@@ -50,7 +42,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     public void update(InputState input) {
-        // Movement and combat state are updated together once per frame.
+        // Aqui se actualiza el movimiento, el disparo y la recarga del jugador.
         float dx = 0f;
         float dy = 0f;
 
@@ -105,6 +97,7 @@ public class EnginePlayer extends DynamicBody {
         setAngularVelocity(0f);
     }
 
+    // Cambia la direccion a la que mira el jugador.
     public void setAimTowards(Vec2 target) {
         if (target == null) {
             return;
@@ -118,12 +111,12 @@ public class EnginePlayer extends DynamicBody {
         }
         aimX = dx / length;
         aimY = dy / length;
-        // The sprite faces downward in the source art, so we rotate by +90 degrees.
+        // El sprite original mira hacia abajo, por eso se gira 90 grados.
         setAngle((float) (Math.atan2(aimY, aimX) + Math.PI / 2.0));
     }
 
     public List<EngineProjectile> tryShoot(EngineGameWorld world) {
-        // Build one projectile for single-shot weapons or several pellets for the shotgun.
+        // Crea una bala si el arma dispara una sola vez o varias si es escopeta.
         List<EngineProjectile> projectiles = new ArrayList<>();
         if (reloading || !weapon.canShoot()) {
             return projectiles;
@@ -161,6 +154,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     public void takeDamage(int amount) {
+        // Resta vida y activa el efecto visual de dano.
         health -= amount;
         if (health < 0) {
             health = 0;
@@ -197,6 +191,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     public void setWeapon(Weapon weapon) {
+        // Cambia el arma y reinicia la recarga.
         this.weapon = weapon;
         this.reloading = false;
         this.reloadFramesLeft = 0;
@@ -204,6 +199,7 @@ public class EnginePlayer extends DynamicBody {
     }
 
     public void startReload() {
+        // Empieza la recarga si hace falta y hay municion en reserva.
         if (reloading || !weapon.canReload()) {
             return;
         }
@@ -270,77 +266,38 @@ public class EnginePlayer extends DynamicBody {
     }
 
     private String getCurrentSpritePath() {
-        // Idle uses the first walk frame; movement and shooting use animated sequences.
-        BufferedImage[] frames = getFramesForCurrentState();
-        if (frames.length == 0) {
-            return null;
-        }
-
+        // Quieto usa la primera imagen. Al moverse o disparar usa animacion.
         if (shotAnimationFrames <= 0 && getLinearVelocity().lengthSquared() <= 0.01f) {
             return getDefaultSpritePath();
         }
 
+        String[] frames = shotAnimationFrames > 0 ? getShootPathsForWeapon() : getWalkPathsForWeapon();
         int frameIndex = (animationTick / 6) % frames.length;
-        return getFramePathForCurrentWeapon(frameIndex, shotAnimationFrames > 0);
+        return frames[frameIndex];
     }
 
-    private BufferedImage[] getFramesForCurrentState() {
-        if (shotAnimationFrames > 0) {
-            BufferedImage[] shootFrames = getShootFramesForWeapon();
-            if (shootFrames.length > 0) {
-                return shootFrames;
-            }
-        }
-
-        return getWalkFramesForWeapon();
-    }
-
-    private BufferedImage[] getWalkFramesForWeapon() {
+    private String[] getWalkPathsForWeapon() {
         if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
-            return FLAMETHROWER_WALK_FRAMES;
+            return SHOTGUN_WALK_PATHS;
         }
         if ("Rifle".equalsIgnoreCase(weapon.getName())) {
-            return RIFLE_WALK_FRAMES;
+            return RIFLE_WALK_PATHS;
         }
-        return PISTOL_WALK_FRAMES;
+        return PISTOL_WALK_PATHS;
     }
 
-    private BufferedImage[] getShootFramesForWeapon() {
+    private String[] getShootPathsForWeapon() {
         if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
-            return FLAMETHROWER_SHOOT_FRAMES;
+            return SHOTGUN_SHOOT_PATHS;
         }
         if ("Rifle".equalsIgnoreCase(weapon.getName())) {
-            return RIFLE_SHOOT_FRAMES;
+            return RIFLE_SHOOT_PATHS;
         }
-        return PISTOL_SHOOT_FRAMES;
-    }
-
-    private String getFramePathForCurrentWeapon(int frameIndex, boolean shooting) {
-        if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
-            return shooting
-                    ? String.format("assets/sprites/player/flamethrower_shoot/FlameThrower_%03d.png", frameIndex)
-                    : String.format("assets/sprites/player/flamethrower_walk/Walk_firethrower_%03d.png", frameIndex);
-        }
-
-        if ("Rifle".equalsIgnoreCase(weapon.getName())) {
-            return shooting
-                    ? String.format("assets/sprites/player/rifle_shoot/Riffle_%03d.png", frameIndex)
-                    : String.format("assets/sprites/player/rifle_walk_v2/Walk_riffle_%03d.png", frameIndex);
-        }
-
-        return shooting
-                ? String.format("assets/sprites/player/pistol_shoot/Gun_Shot_%03d.png", frameIndex)
-                : String.format("assets/sprites/player/pistol_walk/Walk_gun_%03d.png", frameIndex);
+        return PISTOL_SHOOT_PATHS;
     }
 
     private String getDefaultSpritePath() {
-        if ("Rifle".equalsIgnoreCase(weapon.getName())) {
-            return "assets/sprites/player/rifle_walk_v2/Walk_riffle_000.png";
-        }
-        if ("Shotgun".equalsIgnoreCase(weapon.getName())) {
-            return "assets/sprites/player/flamethrower_walk/Walk_firethrower_000.png";
-        }
-        return "assets/sprites/player/pistol_walk/Walk_gun_000.png";
+        return getWalkPathsForWeapon()[0];
     }
 
     private float getCurrentSpriteHeight() {
@@ -352,7 +309,7 @@ public class EnginePlayer extends DynamicBody {
 
     public static void preloadAssets() {
         SpriteLoader.preloadBodyImagesAsync(2.05f, concat(PISTOL_WALK_PATHS, PISTOL_SHOOT_PATHS));
-        SpriteLoader.preloadBodyImagesAsync(2.45f, concat(RIFLE_WALK_PATHS, RIFLE_SHOOT_PATHS, FLAMETHROWER_WALK_PATHS, FLAMETHROWER_SHOOT_PATHS));
+        SpriteLoader.preloadBodyImagesAsync(2.45f, concat(RIFLE_WALK_PATHS, RIFLE_SHOOT_PATHS, SHOTGUN_WALK_PATHS, SHOTGUN_SHOOT_PATHS));
     }
 
     private static String[] createFramePaths(String format, int frameCount) {

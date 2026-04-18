@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class SoundManager {
+    // Aqui se separan los efectos cortos y la musica larga.
     private static final String SOUND_FOLDER = "assets/sounds";
     private static final String MUSIC_FOLDER = "assets/music";
     private static final List<String> SUPPORTED_EXTENSIONS = Arrays.asList(".wav", ".aif", ".aiff", ".au", ".mp3");
@@ -31,42 +32,44 @@ public final class SoundManager {
     private static String currentAmbientTrack;
 
     static {
-        // Gunshot balance: these values keep weapon SFX under the music and ambience.
-        VOLUME_ADJUSTMENTS.put("pistol.wav", -35.0f);
-        VOLUME_ADJUSTMENTS.put("rifle.wav", -26.0f);
-        VOLUME_ADJUSTMENTS.put("shotgun.wav", -28.0f);
+        // Mezcla general: ningun sonido debe pegar un salto raro sobre el resto.
+        VOLUME_ADJUSTMENTS.put("pistol.wav", -24.0f);
+        VOLUME_ADJUSTMENTS.put("rifle.wav", -22.5f);
+        VOLUME_ADJUSTMENTS.put("shotgun.wav", -23.0f);
 
-        VOLUME_ADJUSTMENTS.put("pistol_reload.wav", -5.0f);
-        VOLUME_ADJUSTMENTS.put("rifle_reload.wav", -4.0f);
-        VOLUME_ADJUSTMENTS.put("shotgun_reload.wav", -4.5f);
+        VOLUME_ADJUSTMENTS.put("pistol_reload.wav", -18.0f);
+        VOLUME_ADJUSTMENTS.put("rifle_reload.wav", -17.5f);
+        VOLUME_ADJUSTMENTS.put("shotgun_reload.wav", -18.5f);
 
-        VOLUME_ADJUSTMENTS.put("Terror.wav", -20.0f);
-        VOLUME_ADJUSTMENTS.put("Terror.mp3", -18.0f);
-        VOLUME_ADJUSTMENTS.put("miedo.wav", -19.0f);
-        VOLUME_ADJUSTMENTS.put("jefe_final.mp3", -16.0f);
-        VOLUME_ADJUSTMENTS.put("final_boss.wav", -15.0f);
-        VOLUME_ADJUSTMENTS.put("jefe_final.wav", -13.0f);
-        VOLUME_ADJUSTMENTS.put("susurros.wav", -28.0f);
-        VOLUME_ADJUSTMENTS.put("zombie atak.wav", -12.0f);
-        VOLUME_ADJUSTMENTS.put("player_pain.wav", -10.0f);
-        VOLUME_ADJUSTMENTS.put("respirar.wav", -6.0f);
-        VOLUME_ADJUSTMENTS.put("pistola zombie .wav", -10.5f);
-        VOLUME_ADJUSTMENTS.put("escopeta zombie hit .wav", -9.0f);
-        VOLUME_ADJUSTMENTS.put("zombie_grito_1.wav", -16.0f);
+        VOLUME_ADJUSTMENTS.put("Terror.wav", -19.0f);
+        VOLUME_ADJUSTMENTS.put("Terror.mp3", -19.0f);
+        VOLUME_ADJUSTMENTS.put("miedo.wav", -19.5f);
+        VOLUME_ADJUSTMENTS.put("jefe_final.mp3", -18.0f);
+        VOLUME_ADJUSTMENTS.put("final_boss.wav", -33.0f);
+        VOLUME_ADJUSTMENTS.put("jefe_final.wav", -18.0f);
+        VOLUME_ADJUSTMENTS.put("susurros.wav", -23.5f);
+        VOLUME_ADJUSTMENTS.put("player_pain.wav", -20.5f);
+        VOLUME_ADJUSTMENTS.put("respirar.wav", -12.0f);
+        VOLUME_ADJUSTMENTS.put("pistola zombie .wav", -20.5f);
+        VOLUME_ADJUSTMENTS.put("escopeta zombie hit .wav", -20.0f);
+        VOLUME_ADJUSTMENTS.put("zombie_grito_1.wav", -20.5f);
     }
 
     private SoundManager() {
     }
 
+    // Reproduce un sonido sin limite extra.
     public static void play(String fileName) {
         play(fileName, 0);
     }
 
+    // Reproduce un sonido y opcionalmente evita repetirlo demasiado rapido.
     public static void play(String fileName, long minIntervalMs) {
         if (fileName == null || fileName.isEmpty()) {
             return;
         }
 
+        // Evita que el mismo sonido se repita demasiado rapido.
         if (!isReadyToPlay(fileName, minIntervalMs)) {
             return;
         }
@@ -99,6 +102,7 @@ public final class SoundManager {
     }
 
     public static void playBackgroundMusic(String fileName) {
+        // La musica principal suena en bucle y cambia la anterior.
         AUDIO_EXECUTOR.execute(() -> {
             backgroundClip = startLoop(fileName, backgroundClip, currentBackgroundTrack);
             if (backgroundClip != null) {
@@ -110,6 +114,7 @@ public final class SoundManager {
     }
 
     public static void playAmbientLoop(String fileName) {
+        // El ambiente va aparte para sonar al mismo tiempo que la musica.
         AUDIO_EXECUTOR.execute(() -> {
             ambientClip = startLoop(fileName, ambientClip, currentAmbientTrack);
             if (ambientClip != null) {
@@ -125,6 +130,7 @@ public final class SoundManager {
             return;
         }
 
+        // Carga sonidos en el menu para que luego no den tirones.
         AUDIO_EXECUTOR.execute(() -> {
             for (String fileName : fileNames) {
                 if (fileName == null || fileName.isEmpty()) {
@@ -149,6 +155,7 @@ public final class SoundManager {
     }
 
     public static void stopAllLoops() {
+        // Esto solo para sonidos en bucle, no disparos sueltos.
         AUDIO_EXECUTOR.execute(() -> {
             stopClip(backgroundClip);
             stopClip(ambientClip);
@@ -164,6 +171,7 @@ public final class SoundManager {
             return;
         }
 
+        // Sirve para cortar un sonido al instante.
         AUDIO_EXECUTOR.execute(() -> {
             List<Clip> clips = ACTIVE_CLIPS.remove(fileName);
             if (clips == null) {
@@ -176,6 +184,7 @@ public final class SoundManager {
     }
 
     private static Clip startLoop(String fileName, Clip existingClip, String currentTrack) {
+        // Inicia un audio en bucle si no estaba sonando ya.
         if (fileName == null || fileName.isEmpty()) {
             return existingClip;
         }

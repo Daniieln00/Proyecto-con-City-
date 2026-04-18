@@ -26,6 +26,7 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
     private String currentSpritePath;
     private int playerHitCooldownFrames;
 
+    // Crea una bala con su dano, velocidad y estilo visual.
     public EngineProjectile(EngineGameWorld world, Vec2 position, Vec2 velocity, int damage, String style, boolean fromPlayer) {
         super(world, SHAPE);
         this.damage = damage;
@@ -38,7 +39,7 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
         setLinearVelocity(velocity);
         setFillColor(colorFor(style));
         setLineColor(colorFor(style));
-        remainingFrames = lifetimeFor(style, fromPlayer);
+        remainingFrames = lifetimeFor(style);
         refreshImage();
         addCollisionListener(this);
     }
@@ -60,7 +61,14 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
         return alive;
     }
 
+    public void stopMotion() {
+        // Las balas tambien se paran del todo cuando el juego se pausa.
+        setLinearVelocity(new Vec2(0f, 0f));
+        setAngularVelocity(0f);
+    }
+
     public void markDestroyed() {
+        // La oculta al instante antes de destruirla del todo.
         alive = false;
         setLinearVelocity(new Vec2(0f, 0f));
         setFillColor(new Color(0, 0, 0, 0));
@@ -69,7 +77,7 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
     }
 
     public boolean tickLifetime() {
-        // Projectile animation and lifetime are updated together once per frame.
+        // Aqui se actualiza la animacion y el tiempo de vida de la bala.
         animationTick++;
         if (playerHitCooldownFrames > 0) {
             playerHitCooldownFrames--;
@@ -82,7 +90,8 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
         return false;
     }
 
-    private static int lifetimeFor(String style, boolean fromPlayer) {
+    private static int lifetimeFor(String style) {
+        // Decide cuanto tiempo dura cada tipo de disparo.
         if ("boss_fire".equalsIgnoreCase(style)) {
             return 90;
         }
@@ -96,6 +105,7 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
     }
 
     private static Color colorFor(String style) {
+        // Color de cada proyectil cuando no usa sprite especial.
         if ("boss_fire".equalsIgnoreCase(style)) {
             return new Color(255, 96, 24);
         }
@@ -109,6 +119,7 @@ public class EngineProjectile extends DynamicBody implements CollisionListener {
     }
 
     private void refreshImage() {
+        // El fuego del jefe usa varias imagenes para verse animado.
         if (!"boss_fire".equalsIgnoreCase(style)) {
             return;
         }

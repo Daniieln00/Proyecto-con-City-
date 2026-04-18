@@ -7,8 +7,9 @@ public final class GameLevels {
     private GameLevels() {
     }
 
+    // Devuelve los 3 niveles del juego.
     public static LevelData[] buildLevels() {
-        // All level content is defined here so world logic stays smaller.
+        // Aqui se guardan los datos de los niveles para que el mundo quede mas limpio.
         return new LevelData[] {
                 buildLevel1(),
                 buildLevel2(),
@@ -17,6 +18,7 @@ public final class GameLevels {
     }
 
     private static LevelData buildLevel1() {
+        // Nivel 1: menos enemigos y arma basica.
         LevelData level = new LevelData("Green Fields",
                 "assets/craftpix/maps/level1/field/campo_1.png", pixelCenterToWorld(100 + 18, 110 + 18), 0);
 
@@ -66,6 +68,7 @@ public final class GameLevels {
     }
 
     private static LevelData buildLevel2() {
+        // Nivel 2: mas presion y mejor arma.
         LevelData level = new LevelData("Burning Grounds",
                 "assets/craftpix/maps/level2/cursed/fuego.png", pixelCenterToWorld(78 + 18, 628 + 18), 1);
 
@@ -126,6 +129,7 @@ public final class GameLevels {
     }
 
     private static LevelData buildLevel3() {
+        // Nivel 3: nivel final con jefe.
         LevelData level = new LevelData("Final Arena",
                 "assets/craftpix/maps/level3/nivel3_background.png", pixelCenterToWorld(566 + 18, 610 + 18), 2);
 
@@ -194,14 +198,16 @@ public final class GameLevels {
                 spawn(EngineZombie.Kind.FAST, -60, 410),
                 spawn(EngineZombie.Kind.FAST, 1240, 410),
                 spawn(EngineZombie.Kind.BASIC, 560, 880),
-                spawn(EngineZombie.Kind.TANK, 560, 880),
-                spawn(EngineZombie.Kind.TANK, -60, 410),
-                spawn(EngineZombie.Kind.FAST, 1240, 620)
+                spawn(EngineZombie.Kind.BASIC, 560, -60),
+                spawn(EngineZombie.Kind.FAST, -60, 220),
+                spawn(EngineZombie.Kind.BASIC, 1240, 620),
+                spawn(EngineZombie.Kind.FAST, 1240, 220)
         ));
         return level;
     }
 
     private static List<SpawnData> wave(SpawnData... spawns) {
+        // Agrupa los zombies que salen en una wave.
         List<SpawnData> wave = new ArrayList<>(spawns.length);
         for (SpawnData spawn : spawns) {
             wave.add(spawn);
@@ -210,7 +216,7 @@ public final class GameLevels {
     }
 
     private static void addWorldBounds(LevelData level) {
-        // Invisible border that keeps the player and projectiles inside the map.
+        // Borde invisible para que nadie salga del mapa.
         int thickness = 48;
         level.walls.add(rectData(-thickness, -thickness, thickness, EngineGameWorld.VIEW_HEIGHT + thickness * 2));
         level.walls.add(rectData(EngineGameWorld.VIEW_WIDTH, -thickness, thickness, EngineGameWorld.VIEW_HEIGHT + thickness * 2));
@@ -233,6 +239,7 @@ public final class GameLevels {
     }
 
     private static RectData rectData(int pixelX, int pixelY, int pixelWidth, int pixelHeight) {
+        // Convierte medidas del png a medidas del mundo del juego.
         float worldWidth = pixelWidth / (float) EngineGameWorld.VIEW_WIDTH * EngineGameWorld.WORLD_WIDTH;
         float worldHeight = pixelHeight / (float) EngineGameWorld.VIEW_HEIGHT * EngineGameWorld.WORLD_HEIGHT;
         float centerPixelX = pixelX + pixelWidth / 2f;
@@ -241,7 +248,7 @@ public final class GameLevels {
     }
 
     private static RectData obstacleRectData(int pixelX, int pixelY, int pixelWidth, int pixelHeight) {
-        // Visible props use a slightly smaller collision box than the sprite bounds.
+        // La colision es un poco mas pequena que la imagen para que se sienta mejor.
         int shrunkWidth = Math.max(16, Math.round(pixelWidth * 0.68f));
         int shrunkHeight = Math.max(16, Math.round(pixelHeight * 0.68f));
         int offsetX = pixelX + (pixelWidth - shrunkWidth) / 2;

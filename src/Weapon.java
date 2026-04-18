@@ -1,4 +1,5 @@
 public class Weapon {
+    // Esta clase guarda los datos de cada arma: dano, velocidad, municion y tipo de bala.
     private final String name;
     private final int damage;
     private final int cooldownFrames;
@@ -18,6 +19,7 @@ public class Weapon {
     public Weapon(String name, int damage, int cooldownFrames, int bulletSpeed, int pellets, double spread,
                   String soundFile, int magazineSize, int maxReserveAmmo, int reloadFrames,
                   String reloadSoundFile, String projectileStyle) {
+        // Este constructor crea un arma completa con todos sus valores.
         this.name = name;
         this.damage = damage;
         this.cooldownFrames = cooldownFrames;
@@ -35,6 +37,7 @@ public class Weapon {
     }
 
     public void updateCooldown() {
+        // El tiempo entre disparos se mide en frames.
         if (currentCooldown > 0) {
             currentCooldown--;
         }
@@ -115,6 +118,7 @@ public class Weapon {
     }
 
     public void reloadMagazine() {
+        // Pasa balas de la reserva al cargador.
         int missingAmmo = magazineSize - ammoInMagazine;
         int ammoToLoad = Math.min(missingAmmo, reserveAmmo);
         ammoInMagazine += ammoToLoad;
@@ -136,14 +140,17 @@ public class Weapon {
     }
 
     public static Weapon pistol() {
+        // Arma del nivel 1.
         return new Weapon("Pistol", 20, 14, 14, 1, 0, "pistol.wav", 12, 72, 55, "pistol_reload.wav", "pistol");
     }
 
     public static Weapon rifle() {
+        // Arma del nivel 2.
         return new Weapon("Rifle", 32, 8, 19, 1, 0, "rifle.wav", 24, 168, 70, "rifle_reload.wav", "rifle");
     }
 
     public static Weapon shotgun() {
+        // Arma del nivel 3.
         return new Weapon("Shotgun", 24, 18, 15, 6, 0.22, "shotgun.wav", 6, 48, 110, "recarga_escopeta.wav", "shotgun");
     }
 }

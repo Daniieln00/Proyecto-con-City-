@@ -19,7 +19,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
 
     private static final String MENU_MUSIC = "miedo.wav";
     private static final String GAME_MUSIC = "Terror.wav";
-    // Final boss uses its own background track and should stop with the boss.
+    // Musica del jefe final. Tiene que parar cuando el jefe muere.
     private static final String BOSS_MUSIC = "jefe_final.wav";
     private static final String AMBIENT_LOOP = "susurros.wav";
     private static final String ZOMBIE_GROAN_SOUND = "zombie_grito_1.wav";
@@ -32,6 +32,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     private final List<EngineZombie> zombies = new ArrayList<>();
     private final List<EngineProjectile> projectiles = new ArrayList<>();
     private final List<EnginePickup> pickups = new ArrayList<>();
+    private final List<BloodEffect> bloodEffects = new ArrayList<>();
     private final List<Body> levelBodies = new ArrayList<>();
     private final List<Body> destroyQueue = new ArrayList<>();
     private final List<GameLevels.RectData> activeWallRects = new ArrayList<>();
@@ -54,6 +55,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     private String announcementSubtitle = "";
     private boolean assetsPreloaded;
 
+    // Crea el mundo del juego y prepara el primer estado.
     public EngineGameWorld(InputState input) {
         super(60);
         this.input = input;
@@ -65,7 +67,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
 
     @Override
     public void preStep(StepEvent stepEvent) {
-        // Main game loop: menu/pause transitions, player input, AI and wave progress.
+        // Bucle principal del juego. Aqui se controla casi todo en cada frame.
         if (player == null) {
             return;
         }
@@ -75,6 +77,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (levelTransitioning) {
+            freezeDynamicBodies();
             player.stopMotion();
             transitionFrames--;
             if (transitionFrames <= 0) {
@@ -92,6 +95,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (gameState == GameState.MENU) {
+            freezeDynamicBodies();
             player.stopMotion();
             setMenuEntitiesVisible(false);
             if (input.consumeEnterPressed()) {
@@ -104,6 +108,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (gameState == GameState.PAUSED) {
+            freezeDynamicBodies();
             player.stopMotion();
             if (input.consumeEscapePressed()) {
                 input.resetForStateChange();
@@ -113,6 +118,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (gameState == GameState.GAME_OVER || gameState == GameState.VICTORY) {
+            freezeDynamicBodies();
             player.stopMotion();
             if (input.consumeRestartPressed()) {
                 startNewGame();
@@ -121,6 +127,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         if (input.consumeEscapePressed()) {
+            freezeDynamicBodies();
             player.stopMotion();
             input.resetForStateChange();
             gameState = GameState.PAUSED;
@@ -142,6 +149,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         updateSpawning();
         updateZombies();
         updateProjectiles();
+        updateBloodEffects();
         updateWaveProgress();
 
         if (player.getHealth() <= 0) {
@@ -157,12 +165,13 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         if (destroyQueue.isEmpty()) {
             return;
         }
-        for (Body body : new ArrayList<>(destroyQueue)) {
-            body.destroy();
+        for (int i = 0; i < destroyQueue.size(); i++) {
+            destroyQueue.get(i).destroy();
         }
         destroyQueue.clear();
     }
 
+    // Decide que pasa cuando una bala toca algo.
     public void handleProjectileCollision(EngineProjectile projectile, Body other) {
         if (other == null || !projectile.isAlive()) {
             return;
@@ -177,8 +186,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
                 zombie.takeDamage(projectile.getDamage());
                 SoundManager.play(getImpactSoundForCurrentWeapon(), 50);
                 if (!zombie.isAlive()) {
-                    queueDestroy(zombie);
-                    zombies.remove(zombie);
+                    markZombieDead(zombie);
                 }
                 destroyProjectile(projectile);
                 return;
@@ -203,15 +211,16 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         destroyProjectile(projectile);
     }
 
+    // Aplica el efecto de un pickup cuando el jugador lo toca.
     public void collectPickup(EnginePickup pickup, EnginePlayer player) {
         if (pickup.isCollected()) {
             return;
         }
 
         if (pickup.getKind() == EnginePickup.Kind.AMMO) {
-            player.addAmmo(pickup.getAmount());
+            player.refillAmmo();
         } else {
-            player.heal(pickup.getAmount());
+            player.healFull();
         }
 
         pickup.markCollected();
@@ -219,6 +228,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         queueDestroy(pickup);
     }
 
+    // Se llama cuando el jugador entra en el portal.
     public void onExitReached() {
         if (!exitActive || levelTransitioning || gameState != GameState.PLAYING) {
             return;
@@ -229,6 +239,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         input.firing = false;
     }
 
+    // Mete una bala nueva en el mundo y en la lista de control.
     public void spawnProjectile(EngineProjectile projectile) {
         projectiles.add(projectile);
         levelBodies.add(projectile);
@@ -295,13 +306,19 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         return zombies;
     }
 
+    public List<BloodEffect> getBloodEffects() {
+        return bloodEffects;
+    }
+
     private void startNewGame() {
+        // Reinicia musica, jugador y nivel inicial.
         SoundManager.stopAllLoops();
         SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
         SoundManager.stopSound(RELAX_SOUND);
         SoundManager.playBackgroundMusic(MENU_MUSIC);
         SoundManager.warmUp(GAME_MUSIC, MENU_MUSIC, BOSS_MUSIC, AMBIENT_LOOP, "pistol.wav", "rifle.wav",
-                "shotgun.wav", "pistol_reload.wav", "rifle_reload.wav", "recarga_escopeta.wav", ZOMBIE_GROAN_SOUND, RELAX_SOUND);
+                "shotgun.wav", "pistol_reload.wav", "rifle_reload.wav", "recarga_escopeta.wav",
+                "player_pain.wav", "pistola zombie .wav", "escopeta zombie hit .wav", ZOMBIE_GROAN_SOUND, RELAX_SOUND);
         preloadVisualAssets();
 
         if (player == null) {
@@ -346,7 +363,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
             wallBody.setName("wall");
             levelBodies.add(wallBody);
             if (isVisibleObstacle(wall)) {
-                // Only visible props should affect zombie pathfinding.
+                // Solo los obstaculos que se ven deben frenar a los zombies.
                 activeWallRects.add(wall);
             }
         }
@@ -375,6 +392,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void clearCurrentLevelBodies() {
+        // Borra el nivel anterior antes de crear el nuevo.
         for (Body body : new ArrayList<>(levelBodies)) {
             body.destroy();
         }
@@ -382,11 +400,13 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         zombies.clear();
         pickups.clear();
         projectiles.clear();
+        bloodEffects.clear();
         pendingSpawns.clear();
         activeWallRects.clear();
     }
 
     private void updateSpawning() {
+        // Saca zombies poco a poco para que no salgan todos a la vez.
         if (pendingSpawns.isEmpty()) {
             return;
         }
@@ -397,38 +417,37 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         GameLevels.SpawnData spawn = pendingSpawns.poll();
-        // Enemies should enter from the screen edge instead of appearing in the middle.
+        // Los zombies entran por los bordes para que no aparezcan de golpe en mitad del mapa.
         EngineZombie zombie = new EngineZombie(this, spawn.kind, spawnPositionAtEdge(spawn.kind, spawn.position));
         zombies.add(zombie);
         levelBodies.add(zombie);
         spawnCooldown = 18;
-    }
 
+        if (spawn.kind == EngineZombie.Kind.BOSS && !bossMusicPlaying) {
+            SoundManager.stopAllLoops();
+            SoundManager.playBackgroundMusic(BOSS_MUSIC);
+            bossMusicPlaying = true;
+            showAnnouncement("FINAL BOSS",  "Infernal Abomination");
+        }
+
+    }
     private void updateZombies() {
+        // Mueve zombies, activa sonidos y controla la musica del jefe.
         if (!zombies.isEmpty()) {
             SoundManager.play(ZOMBIE_GROAN_SOUND, 2500);
         } else {
             SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
         }
 
-        for (EngineZombie zombie : new ArrayList<>(zombies)) {
+        for (int i = zombies.size() - 1; i >= 0; i--) {
+            EngineZombie zombie = zombies.get(i);
             zombie.update(this, player);
             if (!zombie.isAlive()) {
-                queueDestroy(zombie);
-                zombies.remove(zombie);
+                markZombieDead(zombie);
             }
         }
 
-        if (!bossMusicPlaying && getActiveBoss() != null) {
-            SoundManager.play(ZOMBIE_GROAN_SOUND);
-            SoundManager.stopAllLoops();
-            SoundManager.playBackgroundMusic(BOSS_MUSIC);
-            bossMusicPlaying = true;
-            showAnnouncement("FINAL BOSS", "Infernal Abomination");
-            return;
-        }
-
-        // If the boss is dead, switch back to the normal level mix immediately.
+        // Si el jefe ya murio, vuelve el sonido normal del nivel.
         if (bossMusicPlaying && getActiveBoss() == null) {
             bossMusicPlaying = false;
             SoundManager.stopAllLoops();
@@ -439,8 +458,10 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void updateProjectiles() {
-        for (EngineProjectile projectile : new ArrayList<>(projectiles)) {
-            // Zombies use ghostly fixtures, so damage is resolved manually here.
+        // Revisa balas, golpes y cuando una bala debe borrarse.
+        for (int i = projectiles.size() - 1; i >= 0; i--) {
+            EngineProjectile projectile = projectiles.get(i);
+            // Como los zombies no bloquean fisicamente, el dano se calcula aqui a mano.
             if (applyManualProjectileHit(projectile)) {
                 continue;
             }
@@ -455,6 +476,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private boolean applyManualProjectileHit(EngineProjectile projectile) {
+        // Comprueba dano sin depender solo de la colision fisica del motor.
         if (!projectile.isAlive()) {
             return false;
         }
@@ -463,7 +485,8 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         float projectileRadius = 0.16f;
 
         if (projectile.isFromPlayer()) {
-            for (EngineZombie zombie : new ArrayList<>(zombies)) {
+            for (int i = zombies.size() - 1; i >= 0; i--) {
+                EngineZombie zombie = zombies.get(i);
                 if (!zombie.isAlive()) {
                     continue;
                 }
@@ -476,8 +499,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
                 zombie.takeDamage(projectile.getDamage());
                 SoundManager.play(getImpactSoundForCurrentWeapon(), 50);
                 if (!zombie.isAlive()) {
-                    queueDestroy(zombie);
-                    zombies.remove(zombie);
+                    markZombieDead(zombie);
                 }
                 destroyProjectile(projectile);
                 return true;
@@ -502,8 +524,16 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void updateWaveProgress() {
+        // Si ya no quedan zombies, pasa a la siguiente wave o activa el portal.
         if (!zombies.isEmpty() || !pendingSpawns.isEmpty()) {
             return;
+        }
+
+        SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
+        if (!relaxSoundPlayed) {
+            SoundManager.stopSound(RELAX_SOUND);
+            SoundManager.play(RELAX_SOUND, 0);
+            relaxSoundPlayed = true;
         }
 
         GameLevels.LevelData level = getCurrentLevel();
@@ -514,11 +544,6 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
             return;
         }
 
-        SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
-        if (!relaxSoundPlayed) {
-            SoundManager.play(RELAX_SOUND, 0);
-            relaxSoundPlayed = true;
-        }
         if (exitDelayFrames == 0) {
             exitDelayFrames = 180;
             return;
@@ -531,12 +556,15 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void queueWave(List<GameLevels.SpawnData> wave) {
+        // Guarda los spawns pendientes de la wave actual.
         pendingSpawns.clear();
         pendingSpawns.addAll(wave);
         spawnCooldown = 0;
+        relaxSoundPlayed = false;
     }
 
     private void destroyProjectile(EngineProjectile projectile) {
+        // Borra una bala de forma segura.
         projectiles.remove(projectile);
         if (projectile.isAlive()) {
             projectile.markDestroyed();
@@ -545,9 +573,18 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void queueDestroy(Body body) {
+        // Se destruyen al final del frame para no romper la fisica.
         if (!destroyQueue.contains(body)) {
             destroyQueue.add(body);
         }
+    }
+
+    private void markZombieDead(EngineZombie zombie) {
+        if (!zombies.remove(zombie)) {
+            return;
+        }
+        bloodEffects.add(new BloodEffect(zombie.getPosition(), zombie.isBoss() ? 1.8f : zombie.getCollisionHalfWidth() * 3.4f));
+        queueDestroy(zombie);
     }
 
     private String getWaveTitle() {
@@ -558,6 +595,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private String getImpactSoundForCurrentWeapon() {
+        // Devuelve el sonido de impacto segun el arma actual.
         if (player.getWeapon().getPellets() > 1 || "Shotgun".equalsIgnoreCase(player.getWeapon().getName())) {
             return "escopeta zombie hit .wav";
         }
@@ -565,12 +603,14 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void showAnnouncement(String title, String subtitle) {
+        // Muestra un texto grande unos segundos.
         announcementTitle = title;
         announcementSubtitle = subtitle;
         announcementFrames = 120;
     }
 
     private void setMenuEntitiesVisible(boolean visible) {
+        // Oculta jugador y pickups cuando estamos en el menu.
         player.setVisible(visible);
         for (EnginePickup pickup : pickups) {
             pickup.setVisible(visible);
@@ -578,7 +618,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     public Vec2 resolveZombieVelocity(EngineZombie zombie, float dx, float dy, float speed) {
-        // Try the direct path first, then slide on one axis, then try side steps.
+        // Primero intenta ir recto. Si no puede, prueba a deslizarse y luego a rodear.
         Vec2 currentPosition = zombie.getPosition();
         float moveX = dx * speed;
         float moveY = dy * speed;
@@ -613,7 +653,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private Vec2 velocityTowards(Vec2 currentPosition, float deltaX, float deltaY, float halfWidth, float halfHeight) {
-        // Clamp the candidate move to the playable area so corners do not freeze enemies.
+        // Limita el movimiento al mapa para que no se queden pillados en las esquinas.
         float targetX = clampToWorld(currentPosition.x + deltaX, halfWidth, WORLD_WIDTH);
         float targetY = clampToWorld(currentPosition.y + deltaY, halfHeight, WORLD_HEIGHT);
         if (collidesAt(targetX, targetY, halfWidth, halfHeight)) {
@@ -623,7 +663,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private Vec2 nudgeInsideWorld(Vec2 position, float halfWidth, float halfHeight, float speed) {
-        // Final fallback when the zombie has drifted too close to the world boundary.
+        // Ultimo ajuste por si el zombie se pego demasiado al borde.
         float nudgedX = clampToWorld(position.x, halfWidth, WORLD_WIDTH);
         float nudgedY = clampToWorld(position.y, halfHeight, WORLD_HEIGHT);
         Vec2 nudge = new Vec2(nudgedX - position.x, nudgedY - position.y);
@@ -649,6 +689,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private boolean collidesAt(float centerX, float centerY, float halfWidth, float halfHeight) {
+        // Mira si el zombie pisaria un obstaculo visible.
         for (GameLevels.RectData wall : activeWallRects) {
             boolean overlapsX = Math.abs(centerX - wall.position.x) < (halfWidth + wall.halfWidth);
             boolean overlapsY = Math.abs(centerY - wall.position.y) < (halfHeight + wall.halfHeight);
@@ -660,6 +701,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private Vec2 spawnPositionAtEdge(EngineZombie.Kind kind, Vec2 position) {
+        // Ajusta el spawn para que entre desde un borde sin salirse del mapa.
         float halfWidth = collisionHalfWidthFor(kind);
         float halfHeight = collisionHalfHeightFor(kind);
         float edgePadding = 0.95f;
@@ -699,12 +741,32 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     }
 
     private void playGameplayAudio() {
+        // Vuelve a poner el sonido normal del nivel.
         SoundManager.stopAllLoops();
         SoundManager.playBackgroundMusic(GAME_MUSIC);
         SoundManager.playAmbientLoop(AMBIENT_LOOP);
     }
 
+    private void freezeDynamicBodies() {
+        // Al pausar hay que parar cuerpos que ya venian moviendose.
+        for (EngineZombie zombie : zombies) {
+            zombie.stopMotion();
+        }
+        for (EngineProjectile projectile : projectiles) {
+            projectile.stopMotion();
+        }
+    }
+
+    private void updateBloodEffects() {
+        for (int i = bloodEffects.size() - 1; i >= 0; i--) {
+            if (bloodEffects.get(i).tick()) {
+                bloodEffects.remove(i);
+            }
+        }
+    }
+
     private void preloadVisualAssets() {
+        // Precarga imagenes para reducir tirones al empezar a jugar.
         if (assetsPreloaded) {
             return;
         }
@@ -727,5 +789,28 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
 
     private GameLevels.LevelData getCurrentLevel() {
         return levels[currentLevelIndex];
+    }
+
+    public static final class BloodEffect {
+        public final Vec2 position;
+        public final float radius;
+        public final int maxFrames;
+        private int framesLeft;
+
+        private BloodEffect(Vec2 position, float radius) {
+            this.position = new Vec2(position.x, position.y);
+            this.radius = radius;
+            this.maxFrames = 220;
+            this.framesLeft = maxFrames;
+        }
+
+        public boolean tick() {
+            framesLeft--;
+            return framesLeft <= 0;
+        }
+
+        public int getFramesLeft() {
+            return framesLeft;
+        }
     }
 }

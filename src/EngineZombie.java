@@ -44,9 +44,10 @@ public class EngineZombie extends DynamicBody {
     private int attackAnimationFrames;
     private String currentSpritePath;
 
+    // Crea un zombie de un tipo concreto.
     public EngineZombie(EngineGameWorld world, Kind kind, Vec2 position) {
         super(world);
-        // GhostlyFixture stops zombies from physically clogging narrow spaces.
+        // Esto hace que los zombies no se empujen entre ellos ni tapen pasillos.
         new GhostlyFixture(this, createShape(kind));
         this.kind = kind;
         this.maxHealth = maxHealthFor(kind);
@@ -65,7 +66,7 @@ public class EngineZombie extends DynamicBody {
     }
 
     public void update(EngineGameWorld world, EnginePlayer player) {
-        // Each zombie only needs simple chase logic plus optional boss attacks.
+        // Logica basica del zombie: seguir al jugador y atacar si esta cerca.
         if (attackCooldownFrames > 0) {
             attackCooldownFrames--;
         }
@@ -129,6 +130,7 @@ public class EngineZombie extends DynamicBody {
         return attackCooldownFrames == 0;
     }
 
+    // Resta vida al zombie.
     public void takeDamage(int amount) {
         health -= amount;
     }
@@ -149,7 +151,14 @@ public class EngineZombie extends DynamicBody {
         return boss;
     }
 
+    public void stopMotion() {
+        // Se usa al pausar o cambiar de nivel para que no sigan moviendose.
+        setLinearVelocity(new Vec2(0f, 0f));
+        setAngularVelocity(0f);
+    }
+
     private float getEffectiveSpeed() {
+        // El jefe cambia de velocidad segun su fase.
         if (!boss) {
             return baseSpeed;
         }
@@ -159,6 +168,7 @@ public class EngineZombie extends DynamicBody {
     }
 
     private float getAttackRange() {
+        // Cada tipo de zombie pega a una distancia distinta.
         switch (kind) {
             case FAST:
                 return 0.95f;
@@ -208,7 +218,7 @@ public class EngineZombie extends DynamicBody {
             case TANK:
                 return 160;
             case BOSS:
-                return 520;
+                return 680;
             default:
                 return 45;
         }

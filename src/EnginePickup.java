@@ -1,4 +1,3 @@
-import city.cs.engine.BodyImage;
 import city.cs.engine.CircleShape;
 import city.cs.engine.Sensor;
 import city.cs.engine.SensorEvent;
@@ -8,6 +7,7 @@ import org.jbox2d.common.Vec2;
 
 import java.awt.Color;
 
+// Esta clase crea objetos que dan vida o municion al tocarlos.
 public class EnginePickup extends StaticBody implements SensorListener {
     public enum Kind {
         AMMO,
@@ -27,14 +27,16 @@ public class EnginePickup extends StaticBody implements SensorListener {
         setPosition(position);
         setFillColor(new Color(0, 0, 0, 0));
         setLineColor(new Color(0, 0, 0, 0));
-        addImage(SpriteLoader.loadBodyImage(imageFor(kind), 0.9f));
+        addImage(SpriteLoader.loadBodyImage(imageFor(kind), 1.0f));
 
+        // Se puede recoger, pero no bloquea el camino.
         Sensor sensor = new Sensor(this, new CircleShape(0.45f));
         sensor.addSensorListener(this);
     }
 
     @Override
     public void beginContact(SensorEvent e) {
+        // Si ya se recogio, no hace nada otra vez.
         if (collected) {
             return;
         }
@@ -60,6 +62,7 @@ public class EnginePickup extends StaticBody implements SensorListener {
     }
 
     public void markCollected() {
+        // El mundo lo borra al final del frame.
         collected = true;
     }
 
@@ -71,19 +74,20 @@ public class EnginePickup extends StaticBody implements SensorListener {
         this.visible = visible;
         removeAllImages();
         if (visible) {
-            addImage(SpriteLoader.loadBodyImage(imageFor(kind), 0.9f));
+            addImage(SpriteLoader.loadBodyImage(imageFor(kind), 1.0f));
         }
     }
 
     private static String imageFor(Kind kind) {
+        // Cada tipo usa una imagen distinta para reconocerlo rapido.
         if (kind == Kind.AMMO) {
-            return "assets/craftpix/maps/level3/props/objects_house_0048_Layer-49.png";
+            return "assets/craftpix/maps/level3/props/objects_house_0021_Layer-22.png";
         }
-        return "assets/craftpix/maps/level3/props/objects_house_0022_Layer-23.png";
+        return "assets/craftpix/maps/level3/props/objects_house_0020_Layer-21.png";
     }
 
     public static void preloadAssets() {
-        SpriteLoader.preloadBodyImagesAsync(0.9f,
+        SpriteLoader.preloadBodyImagesAsync(1.0f,
                 imageFor(Kind.AMMO),
                 imageFor(Kind.HEALTH));
     }
