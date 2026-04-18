@@ -44,15 +44,13 @@ public final class SoundManager {
         VOLUME_ADJUSTMENTS.put("Terror.wav", -19.0f);
         VOLUME_ADJUSTMENTS.put("Terror.mp3", -19.0f);
         VOLUME_ADJUSTMENTS.put("miedo.wav", -19.5f);
-        VOLUME_ADJUSTMENTS.put("jefe_final.mp3", -18.0f);
-        VOLUME_ADJUSTMENTS.put("final_boss.wav", -33.0f);
-        VOLUME_ADJUSTMENTS.put("jefe_final.wav", -18.0f);
+        VOLUME_ADJUSTMENTS.put("final_boss.wav", -22.0f);
+        VOLUME_ADJUSTMENTS.put("jefe_final.wav", -10.0f);
         VOLUME_ADJUSTMENTS.put("susurros.wav", -23.5f);
         VOLUME_ADJUSTMENTS.put("player_pain.wav", -20.5f);
-        VOLUME_ADJUSTMENTS.put("respirar.wav", -12.0f);
         VOLUME_ADJUSTMENTS.put("pistola zombie .wav", -20.5f);
         VOLUME_ADJUSTMENTS.put("escopeta zombie hit .wav", -20.0f);
-        VOLUME_ADJUSTMENTS.put("zombie_grito_1.wav", -20.5f);
+        VOLUME_ADJUSTMENTS.put("zombie_grito_1.wav", -14.0f);
     }
 
     private SoundManager() {

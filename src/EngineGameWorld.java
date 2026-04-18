@@ -20,10 +20,10 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     private static final String MENU_MUSIC = "miedo.wav";
     private static final String GAME_MUSIC = "Terror.wav";
     // Musica del jefe final. Tiene que parar cuando el jefe muere.
-    private static final String BOSS_MUSIC = "jefe_final.wav";
+    private static final String BOSS_MUSIC = "final_boss.wav";
+    private static final String BOSS_SPAWN_SOUND = "jefe_final.wav";
     private static final String AMBIENT_LOOP = "susurros.wav";
     private static final String ZOMBIE_GROAN_SOUND = "zombie_grito_1.wav";
-    private static final String RELAX_SOUND = "respirar.wav";
     private static final String MENU_BACKGROUND_PATH = "assets/menu_inicio.png";
 
     private final InputState input;
@@ -48,7 +48,6 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
     private boolean levelTransitioning;
     private int transitionFrames;
     private int exitDelayFrames;
-    private boolean relaxSoundPlayed;
     private int nextLevelIndex = -1;
     private int announcementFrames;
     private String announcementTitle = "";
@@ -314,11 +313,10 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         // Reinicia musica, jugador y nivel inicial.
         SoundManager.stopAllLoops();
         SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
-        SoundManager.stopSound(RELAX_SOUND);
         SoundManager.playBackgroundMusic(MENU_MUSIC);
         SoundManager.warmUp(GAME_MUSIC, MENU_MUSIC, BOSS_MUSIC, AMBIENT_LOOP, "pistol.wav", "rifle.wav",
                 "shotgun.wav", "pistol_reload.wav", "rifle_reload.wav", "recarga_escopeta.wav",
-                "player_pain.wav", "pistola zombie .wav", "escopeta zombie hit .wav", ZOMBIE_GROAN_SOUND, RELAX_SOUND);
+                "player_pain.wav", "pistola zombie .wav", "escopeta zombie hit .wav", ZOMBIE_GROAN_SOUND, BOSS_SPAWN_SOUND);
         preloadVisualAssets();
 
         if (player == null) {
@@ -347,11 +345,9 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         currentWave = 1;
         exitActive = false;
         exitDelayFrames = 0;
-        relaxSoundPlayed = false;
         spawnCooldown = 0;
         bossMusicPlaying = false;
         SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
-        SoundManager.stopSound(RELAX_SOUND);
         input.resetForStateChange();
         activeWallRects.clear();
 
@@ -426,6 +422,7 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         if (spawn.kind == EngineZombie.Kind.BOSS && !bossMusicPlaying) {
             SoundManager.stopAllLoops();
             SoundManager.playBackgroundMusic(BOSS_MUSIC);
+            SoundManager.play(BOSS_SPAWN_SOUND, 0);
             bossMusicPlaying = true;
             showAnnouncement("FINAL BOSS",  "Infernal Abomination");
         }
@@ -447,13 +444,8 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
             }
         }
 
-        // Si el jefe ya murio, vuelve el sonido normal del nivel.
         if (bossMusicPlaying && getActiveBoss() == null) {
             bossMusicPlaying = false;
-            SoundManager.stopAllLoops();
-            if (!zombies.isEmpty() || !pendingSpawns.isEmpty()) {
-                playGameplayAudio();
-            }
         }
     }
 
@@ -530,11 +522,6 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         }
 
         SoundManager.stopSound(ZOMBIE_GROAN_SOUND);
-        if (!relaxSoundPlayed) {
-            SoundManager.stopSound(RELAX_SOUND);
-            SoundManager.play(RELAX_SOUND, 0);
-            relaxSoundPlayed = true;
-        }
 
         GameLevels.LevelData level = getCurrentLevel();
         if (currentWave < level.waves.size()) {
@@ -560,7 +547,6 @@ public class EngineGameWorld extends city.cs.engine.World implements StepListene
         pendingSpawns.clear();
         pendingSpawns.addAll(wave);
         spawnCooldown = 0;
-        relaxSoundPlayed = false;
     }
 
     private void destroyProjectile(EngineProjectile projectile) {
